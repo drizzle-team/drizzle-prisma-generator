@@ -11,11 +11,14 @@
 		"pack": "(cd dist && npm pack --pack-destination ..) && rm -f package.tgz && mv *.tgz package.tgz",
 		"publish": "npm publish package.tgz",
 		"test": "vitest run",
-		"t": "pnpm run build && cd ../prisma-testbench && npx prisma generate dev && code ./src/db/schema.ts"
+		"t": "pnpm run build && cd ../prisma-testbench && npx prisma generate dev && code ./src/db/schema.ts",
+		"lint": "dprint check --list-different"
 	},
 	"license": "Apache-2.0",
 	"devDependencies": {
+		"@arethetypeswrong/cli": "^0.15.3",
 		"@types/node": "^20.12.7",
+		"dprint": "^0.45.1",
 		"prisma": "^5.12.1",
 		"tsup": "^8.0.2",
 		"tsx": "^4.7.2",
@@ -35,8 +38,6 @@
 		"sql",
 		"typescript",
 		"ts",
-		"plugin",
-		"generator",
 		"schema"
 	],
 	"main": "./index.cjs",
@@ -50,6 +51,7 @@
 		"type": "git",
 		"url": "git+https://github.com/Sukairo-02/drizzle-prisma-generator.git"
 	},
+	"homepage": "https://github.com/Sukairo-02/drizzle-prisma-generator",
 	"dependencies": {
 		"@prisma/generator-helper": "^5.14.0"
 	}

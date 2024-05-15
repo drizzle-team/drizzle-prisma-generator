@@ -278,7 +278,6 @@ export const generatePgSchema = (options: GeneratorOptions) => {
 		: undefined;
 
 	let importsStr: string | undefined = [drizzleImportsStr, pgImportsStr].filter((e) => e !== undefined).join('\n');
-	console.log(importsStr);
 	if (!importsStr.length) importsStr = undefined;
 
 	const output = [importsStr, ...pgEnums, ...tables, ...rqb].filter((e) => e !== undefined).join('\n\n');
