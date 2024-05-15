@@ -1,0 +1,56 @@
+{
+	"name": "drizzle-prisma-generator",
+	"type": "module",
+	"author": "Drizzle Team",
+	"version": "0.1.0",
+	"description": "Generate Drizzle schema from Prisma schema",
+	"scripts": {
+		"run": "tsx src/index.ts",
+		"build": "pnpm tsx scripts/build.ts",
+		"b": "pnpm build",
+		"pack": "(cd dist && npm pack --pack-destination ..) && rm -f package.tgz && mv *.tgz package.tgz",
+		"publish": "npm publish package.tgz",
+		"test": "vitest run",
+		"t": "pnpm run build && cd ../prisma-testbench && npx prisma generate dev && code ./src/db/schema.ts"
+	},
+	"license": "Apache-2.0",
+	"devDependencies": {
+		"@types/node": "^20.12.7",
+		"prisma": "^5.12.1",
+		"tsup": "^8.0.2",
+		"tsx": "^4.7.2",
+		"typescript": "^5.4.5",
+		"zx": "^8.0.2"
+	},
+	"keywords": [
+		"drizzle",
+		"prisma",
+		"orm",
+		"pg",
+		"mysql",
+		"postgresql",
+		"postgres",
+		"sqlite",
+		"database",
+		"sql",
+		"typescript",
+		"ts",
+		"plugin",
+		"generator",
+		"schema"
+	],
+	"main": "./index.cjs",
+	"module": "./index.js",
+	"types": "./index.d.ts",
+	"sideEffects": false,
+	"publishConfig": {
+		"provenance": true
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/Sukairo-02/drizzle-prisma-generator.git"
+	},
+	"dependencies": {
+		"@prisma/generator-helper": "^5.14.0"
+	}
+}
