@@ -40,9 +40,20 @@
 		"ts",
 		"schema"
 	],
-	"main": "./index.cjs",
-	"module": "./index.js",
-	"types": "./index.d.ts",
+	"exports": {
+		".": {
+			"import": {
+				"types": "./index.d.ts",
+				"default": "./index.js"
+			},
+			"require": {
+				"types": "./index.d.cjs",
+				"default": "./index.cjs"
+			},
+			"types": "./index.d.ts",
+			"default": "./index.js"
+		}
+	},
 	"sideEffects": false,
 	"publishConfig": {
 		"provenance": true

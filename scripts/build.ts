@@ -10,7 +10,6 @@ await build({
 	sourcemap: true,
 	dts: true,
 	format: ['cjs', 'esm'],
-	external: ['drizzle-kit', '../drizzle-kit', '../drizzle-kit/**'],
 	outExtension(ctx) {
 		if (ctx.format === 'cjs') {
 			return {
@@ -26,4 +25,4 @@ await build({
 });
 
 fs.copyFileSync('package.json', 'dist/package.json');
-// fs.copyFileSync('README.md', 'dist/README.md');
+fs.copyFileSync('README.md', 'dist/README.md');
