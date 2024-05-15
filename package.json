@@ -1,17 +1,15 @@
 {
 	"name": "drizzle-prisma-generator",
-	"type": "module",
 	"author": "Drizzle Team",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"description": "Generate Drizzle schema from Prisma schema",
 	"scripts": {
-		"run": "tsx src/index.ts",
+		"run": "pnpm run build && cd ../prisma-testbench && npx prisma generate dev && code ./src/db/schema.ts",
 		"build": "pnpm tsx scripts/build.ts",
 		"b": "pnpm build",
 		"pack": "(cd dist && npm pack --pack-destination ..) && rm -f package.tgz && mv *.tgz package.tgz",
 		"publish": "npm publish package.tgz",
 		"test": "vitest run",
-		"t": "pnpm run build && cd ../prisma-testbench && npx prisma generate dev && code ./src/db/schema.ts",
 		"lint": "dprint check --list-different"
 	},
 	"license": "Apache-2.0",
@@ -40,20 +38,8 @@
 		"ts",
 		"schema"
 	],
-	"exports": {
-		".": {
-			"import": {
-				"types": "./index.d.ts",
-				"default": "./index.js"
-			},
-			"require": {
-				"types": "./index.d.cjs",
-				"default": "./index.cjs"
-			},
-			"types": "./index.d.ts",
-			"default": "./index.js"
-		}
-	},
+	"bin": "./index.js",
+	"main": "./index.js",
 	"sideEffects": false,
 	"publishConfig": {
 		"provenance": true

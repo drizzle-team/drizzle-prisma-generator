@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { defaultPath, generatorName } from '@/globals';
 import { GeneratorError, generatorHandler } from '@prisma/generator-helper';
 import path from 'path';
@@ -5,7 +6,7 @@ import { version } from '../package.json';
 import { generateMySqlSchema, generatePgSchema, generateSQLiteSchema } from './util/generators';
 import { recursiveWrite } from './util/recursive-write';
 
-generatorHandler({
+export const generator = generatorHandler({
 	onManifest() {
 		return {
 			version,
@@ -41,7 +42,6 @@ generatorHandler({
 			case undefined:
 				throw new GeneratorError('Unable to determine database type.\nMake sure datasource.provider is specified.');
 
-			case 'mongodb':
 			default:
 				throw new GeneratorError(
 					`Invalid database type for Drizzle schema generation: ${dbType}.\nSupported database types: PostgreSQL, MySQL, SQLite.`,
@@ -61,3 +61,5 @@ generatorHandler({
 		recursiveWrite(schemaPath, output);
 	},
 });
+
+export default generator;
