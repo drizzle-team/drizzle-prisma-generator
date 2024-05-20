@@ -1,3 +1,4 @@
+import { s } from '@/util/escape';
 import { extractManyToManyModels } from '@/util/extract-many-to-many-models';
 import { UnReadonlyDeep } from '@/util/un-readonly-deep';
 import { type DMMF, GeneratorError, type GeneratorOptions } from '@prisma/generator-helper';
@@ -85,14 +86,14 @@ const addColumnModifiers = (field: DMMF.Field, column: string) => {
 				}
 
 				if (value.name === 'dbgenerated') {
-					column = column + `.default(sql\`${value.args[0]}\`)`;
+					column = column + `.default(sql\`${s(value.args[0], '`')}\`)`;
 
 					drizzleImports.add('sql');
 					break;
 				}
 
 				const stringified = `${value.name}(${value.args.map((e) => String(e)).join(', ')})`;
-				const sequel = `sql\`${stringified}\``;
+				const sequel = `sql\`${s(stringified, '`')}\``;
 
 				drizzleImports.add('sql');
 				column = column + `.default(${sequel})`;
@@ -106,7 +107,7 @@ const addColumnModifiers = (field: DMMF.Field, column: string) => {
 const prismaToDrizzleColumn = (
 	field: DMMF.Field,
 ): string | undefined => {
-	const colDbName = field.dbName ?? field.name;
+	const colDbName = s(field.dbName ?? field.name);
 	let column = `\t${field.name}: `;
 
 	if (field.kind === 'enum') {
@@ -139,7 +140,7 @@ export const generatePgSchema = (options: GeneratorOptions) => {
 
 	for (const schemaEnum of enums) {
 		if (!schemaEnum.values.length) continue;
-		const enumDbName = schemaEnum.dbName ?? schemaEnum.name;
+		const enumDbName = s(schemaEnum.dbName ?? schemaEnum.name);
 
 		pgImports.add('pgEnum');
 
@@ -154,7 +155,7 @@ export const generatePgSchema = (options: GeneratorOptions) => {
 	const rqb: string[] = [];
 
 	for (const schemaTable of modelsWithImplicit) {
-		const tableDbName = schemaTable.dbName ?? schemaTable.name;
+		const tableDbName = s(schemaTable.dbName ?? schemaTable.name);
 
 		const columnFields = Object.fromEntries(
 			schemaTable.fields
@@ -178,7 +179,7 @@ export const generatePgSchema = (options: GeneratorOptions) => {
 				return undefined;
 			}
 
-			const fkeyName = `${schemaTable.dbName ?? schemaTable.name}_${field.dbName ?? field.name}_fkey`;
+			const fkeyName = s(`${schemaTable.dbName ?? schemaTable.name}_${field.dbName ?? field.name}_fkey`);
 			let deleteAction: string;
 			switch (field.relationOnDelete) {
 				case undefined:
@@ -200,7 +201,7 @@ export const generatePgSchema = (options: GeneratorOptions) => {
 
 			pgImports.add('foreignKey');
 
-			return `\t${fkeyName}: foreignKey({\n\t\tname: '${fkeyName}',\n\t\tcolumns: [${
+			return `\t'${fkeyName}': foreignKey({\n\t\tname: '${fkeyName}',\n\t\tcolumns: [${
 				field.relationFromFields.map((rel) => `${schemaTable.name}.${rel}`).join(', ')
 			}],\n\t\tforeignColumns: [${field.relationToFields!.map((rel) => `${field.type}.${rel}`).join(', ')}]\n\t})${
 				deleteAction && deleteAction !== 'no action' ? `\n\t\t.onDelete('${deleteAction}')` : ''
@@ -213,7 +214,7 @@ export const generatePgSchema = (options: GeneratorOptions) => {
 			pgImports.add('uniqueIndex');
 
 			const uniques = schemaTable.uniqueIndexes.map((idx) => {
-				const idxName = idx.name ?? `${schemaTable.name}_${idx.fields.join('_')}_key`;
+				const idxName = s(idx.name ?? `${schemaTable.name}_${idx.fields.join('_')}_key`);
 				// _key comes from Prisma, if their AI is to be trusted
 
 				return `\t'${
@@ -228,7 +229,7 @@ export const generatePgSchema = (options: GeneratorOptions) => {
 			pgImports.add('primaryKey');
 
 			const pk = schemaTable.primaryKey!;
-			const pkName = pk.name ?? `${schemaTable.name}_cpk`;
+			const pkName = s(pk.name ?? `${schemaTable.name}_cpk`);
 
 			const pkField = `\t'${pkName}': primaryKey({\n\t\tname: '${pkName}',\n\t\tcolumns: [${
 				pk.fields.map((f) => `${schemaTable.name}.${f}`).join(', ')
@@ -249,13 +250,14 @@ export const generatePgSchema = (options: GeneratorOptions) => {
 		const relationArgs = new Set<string>();
 		const rqbFields = relFields.map((field) => {
 			relationArgs.add(field.relationFromFields?.length ? 'one' : 'many');
+			const relName = s(field.relationName ?? '');
 
-			return `\t'${field.relationName}': ${
+			return `\t'${relName}': ${
 				field.relationFromFields?.length
-					? `one(${field.type}, {\n\t\trelationName: '${field.relationName}',\n\t\tfields: [${
+					? `one(${field.type}, {\n\t\trelationName: '${relName}',\n\t\tfields: [${
 						field.relationFromFields.map((e) => `${schemaTable.name}.${e}`).join(', ')
 					}],\n\t\treferences: [${field.relationToFields!.map((e) => `${field.type}.${e}`).join(', ')}]\n\t})`
-					: `many(${field.type}, {\n\t\trelationName: '${field.relationName}'\n\t})`
+					: `many(${field.type}, {\n\t\trelationName: '${relName}'\n\t})`
 			}`;
 		}).join(',\n');
 
