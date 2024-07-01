@@ -7,32 +7,32 @@ const sqliteImports = new Set<string>(['sqliteTable']);
 const drizzleImports = new Set<string>([]);
 
 const prismaToDrizzleType = (type: string, colDbName: string) => {
-	switch (type) {
-		case 'BigInt':
+	switch (type.toLowerCase()) {
+		case 'bigint':
 			sqliteImports.add('int');
 			return `int('${colDbName}')`;
-		case 'Boolean':
+		case 'boolean':
 			sqliteImports.add('int');
 			return `int('${colDbName}', { mode: 'boolean' })`;
-		case 'Bytes':
+		case 'bytes':
 			sqliteImports.add('blob');
 			return `blob('${colDbName}', { mode: 'buffer' })`;
-		case 'DateTime':
+		case 'datetime':
 			sqliteImports.add('numeric');
 			return `numeric('${colDbName}')`;
-		case 'Decimal':
+		case 'decimal':
 			sqliteImports.add('numeric');
 			return `numeric('${colDbName}')`;
-		case 'Float':
+		case 'float':
 			sqliteImports.add('real');
 			return `real('${colDbName}')`;
-		case 'JSON':
+		case 'json':
 			sqliteImports.add('text');
 			return `text('${colDbName}', { mode: 'json' })`;
-		case 'Int':
+		case 'int':
 			sqliteImports.add('int');
 			return `int('${colDbName}')`;
-		case 'String':
+		case 'string':
 			sqliteImports.add('text');
 			return `text('${colDbName}')`;
 		default:

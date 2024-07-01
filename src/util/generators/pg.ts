@@ -8,29 +8,29 @@ const drizzleImports = new Set<string>();
 pgImports.add('pgTable');
 
 const prismaToDrizzleType = (type: string, colDbName: string, defVal?: string) => {
-	switch (type) {
-		case 'BigInt':
+	switch (type.toLowerCase()) {
+		case 'bigint':
 			pgImports.add('bigint');
 			return `bigint('${colDbName}', { mode: 'bigint' })`;
-		case 'Boolean':
+		case 'boolean':
 			pgImports.add('boolean');
 			return `boolean('${colDbName}')`;
-		case 'Bytes':
+		case 'bytes':
 			// Drizzle doesn't support it yet...
 			throw new GeneratorError("Drizzle ORM doesn't support binary data type for PostgreSQL");
-		case 'DateTime':
+		case 'datetime':
 			pgImports.add('timestamp');
 			return `timestamp('${colDbName}', { precision: 3 })`;
-		case 'Decimal':
+		case 'decimal':
 			pgImports.add('decimal');
 			return `decimal('${colDbName}', { precision: 65, scale: 30 })`;
-		case 'Float':
+		case 'float':
 			pgImports.add('doublePrecision');
 			return `doublePrecision('${colDbName}')`;
-		case 'JSON':
+		case 'json':
 			pgImports.add('jsonb');
 			return `jsonb('${colDbName}')`;
-		case 'Int':
+		case 'int':
 			if (defVal === 'autoincrement') {
 				pgImports.add('serial');
 				return `serial('${colDbName}')`;
@@ -38,7 +38,7 @@ const prismaToDrizzleType = (type: string, colDbName: string, defVal?: string) =
 
 			pgImports.add('integer');
 			return `integer('${colDbName}')`;
-		case 'String':
+		case 'string':
 			pgImports.add('text');
 			return `text('${colDbName}')`;
 		default:

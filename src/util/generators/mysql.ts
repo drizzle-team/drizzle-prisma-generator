@@ -12,32 +12,32 @@ const prismaToDrizzleType = (type: string, colDbName: string, prismaEnum?: UnRea
 		return `mysqlEnum('${colDbName}', [${prismaEnum.values.map((val) => `'${val.dbName ?? val.name}'`).join(', ')}])`;
 	}
 
-	switch (type) {
-		case 'BigInt':
+	switch (type.toLowerCase()) {
+		case 'bigint':
 			mySqlImports.add('bigint');
 			return `bigint('${colDbName}', { mode: 'bigint' })`;
-		case 'Boolean':
+		case 'boolean':
 			mySqlImports.add('boolean');
 			return `boolean('${colDbName}')`;
-		case 'Bytes':
+		case 'bytes':
 			// Drizzle doesn't support it yet...
 			throw new GeneratorError("Drizzle ORM doesn't support binary data type for MySQL");
-		case 'DateTime':
+		case 'datetime':
 			mySqlImports.add('datetime');
 			return `datetime('${colDbName}', { fsp: 3 })`;
-		case 'Decimal':
+		case 'decimal':
 			mySqlImports.add('decimal');
 			return `decimal('${colDbName}', { precision: 65, scale: 30 })`;
-		case 'Float':
+		case 'float':
 			mySqlImports.add('double');
 			return `double('${colDbName}')`;
-		case 'JSON':
+		case 'json':
 			mySqlImports.add('json');
 			return `json('${colDbName}')`;
-		case 'Int':
+		case 'int':
 			mySqlImports.add('int');
 			return `int('${colDbName}')`;
-		case 'String':
+		case 'string':
 			mySqlImports.add('varchar');
 			return `varchar('${colDbName}', { length: 191 })`;
 		default:
