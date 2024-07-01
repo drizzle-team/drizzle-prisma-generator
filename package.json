@@ -1,7 +1,7 @@
 {
 	"name": "drizzle-prisma-generator",
 	"author": "Drizzle Team",
-	"version": "0.1.2",
+	"version": "0.1.3",
 	"description": "Generate Drizzle schema from Prisma schema",
 	"scripts": {
 		"run": "pnpm run build && cd ../prisma-testbench && npx prisma generate dev && code ./src/db/schema.ts",
