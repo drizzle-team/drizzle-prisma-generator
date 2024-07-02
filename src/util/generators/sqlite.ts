@@ -222,7 +222,7 @@ export const generateSQLiteSchema = (options: GeneratorOptions) => {
 			relationArgs.add(field.relationFromFields?.length ? 'one' : 'many');
 			const relName = s(field.relationName ?? '');
 
-			return `\t'${relName}': ${
+			return `\t${field.name}: ${
 				field.relationFromFields?.length
 					? `one(${field.type}, {\n\t\trelationName: '${relName}',\n\t\tfields: [${
 						field.relationFromFields.map((e) => `${schemaTable.name}.${e}`).join(', ')
