@@ -57,10 +57,7 @@ const addColumnModifiers = (field: DMMF.Field, column: string) => {
 				break;
 			case 'object':
 				if (Array.isArray(defVal)) {
-					column = column + `.default(
-						sql\`ARRAY[${defVal.map((e) => String(e)).join(',')}]\`))`;
-
-					drizzleImports.add('sql');
+					column = column + `.default([${defVal.map((e) => JSON.stringify(e)).join(', ')}])`;
 					break;
 				}
 
@@ -85,7 +82,18 @@ const addColumnModifiers = (field: DMMF.Field, column: string) => {
 					break;
 				}
 
-				const stringified = `${value.name}(${value.args.map((e) => String(e)).join(', ')})`;
+				if (/^uuid\([0-9]*\)$/.test(value.name)) {
+					column = column + `.default(sql\`uuid()\`)`;
+					break;
+				}
+
+				const stringified = `${value.name}${
+					value.args.length
+						? '(' + value.args.map((e) => String(e)).join(', ') + ')'
+						: value.name.endsWith(')')
+						? ''
+						: '()'
+				}`;
 				const sequel = `sql\`${s(stringified, '`')}\``;
 
 				drizzleImports.add('sql');
