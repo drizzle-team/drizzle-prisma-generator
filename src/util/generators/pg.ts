@@ -91,6 +91,8 @@ const addColumnModifiers = (field: DMMF.Field, column: string) => {
 
 				if (/^uuid\([0-9]*\)$/.test(value.name)) {
 					column = column + `.default(sql\`uuid()\`)`;
+
+					drizzleImports.add('sql');
 					break;
 				}
 
