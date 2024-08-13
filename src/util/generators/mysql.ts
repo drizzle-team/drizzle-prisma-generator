@@ -159,16 +159,6 @@ export const generateMySqlSchema = (options: GeneratorOptions) => {
 		const relFields = schemaTable.fields.filter((field) => field.relationToFields && field.relationFromFields);
 		const relations = relFields.map<string | undefined>((field) => {
 			if (!field?.relationFromFields?.length) return undefined;
-			if (field.relationFromFields.length == 1 && field.relationToFields?.length == 1) {
-				const thisField = field.relationFromFields[0];
-				const otherField = field.relationToFields[0];
-				const otherTable = field.type;
-
-				columnFields[thisField as keyof typeof columnFields] = columnFields[thisField as keyof typeof columnFields]
-					+ `.references(() => ${otherTable}.${otherField})`;
-
-				return undefined;
-			}
 
 			const fkeyName = s(`${schemaTable.dbName ?? schemaTable.name}_${field.dbName ?? field.name}_fkey`);
 			let deleteAction: string;
@@ -179,6 +169,9 @@ export const generateMySqlSchema = (options: GeneratorOptions) => {
 					break;
 				case 'SetNull':
 					deleteAction = 'set null';
+					break;
+				case 'SetDefault':
+					deleteAction = 'set default';
 					break;
 				case 'Restrict':
 					deleteAction = 'restrict';
