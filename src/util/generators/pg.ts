@@ -2,12 +2,13 @@ import { s } from '@/util/escape';
 import { extractManyToManyModels } from '@/util/extract-many-to-many-models';
 import { UnReadonlyDeep } from '@/util/un-readonly-deep';
 import { type DMMF, GeneratorError, type GeneratorOptions } from '@prisma/generator-helper';
+import { createPrismaSchemaBuilder } from "@mrleebo/prisma-ast";
 
 const pgImports = new Set<string>();
 const drizzleImports = new Set<string>();
 pgImports.add('pgTable');
 
-const prismaToDrizzleType = (type: string, colDbName: string, defVal?: string) => {
+const prismaToDrizzleType = (type: string, colDbName: string, defVal?: string, nativeType?: string) => {
 	switch (type.toLowerCase()) {
 		case 'bigint':
 			pgImports.add('bigint');
@@ -19,6 +20,12 @@ const prismaToDrizzleType = (type: string, colDbName: string, defVal?: string) =
 			// Drizzle doesn't support it yet...
 			throw new GeneratorError("Drizzle ORM doesn't support binary data type for PostgreSQL");
 		case 'datetime':
+			if (nativeType) {
+				pgImports.add(nativeType);
+
+				return `${nativeType}('${colDbName}', { precision: 3 })`;
+			}
+
 			pgImports.add('timestamp');
 			return `timestamp('${colDbName}', { precision: 3 })`;
 		case 'decimal':
@@ -100,8 +107,8 @@ const addColumnModifiers = (field: DMMF.Field, column: string) => {
 					value.args.length
 						? '(' + value.args.map((e) => String(e)).join(', ') + ')'
 						: value.name.endsWith(')')
-						? ''
-						: '()'
+							? ''
+							: '()'
 				}`;
 				const sequel = `sql\`${s(stringified, '`')}\``;
 
@@ -116,6 +123,7 @@ const addColumnModifiers = (field: DMMF.Field, column: string) => {
 
 const prismaToDrizzleColumn = (
 	field: DMMF.Field,
+	nativeType?: string,
 ): string | undefined => {
 	const colDbName = s(field.dbName ?? field.name);
 	let column = `\t${field.name}: `;
@@ -127,7 +135,7 @@ const prismaToDrizzleColumn = (
 			? (field.default as { name: string }).name
 			: undefined;
 
-		const drizzleType = prismaToDrizzleType(field.type, colDbName, defVal);
+		const drizzleType = prismaToDrizzleType(field.type, colDbName, defVal, nativeType);
 		if (!drizzleType) return undefined;
 
 		column = column + drizzleType;
@@ -164,13 +172,34 @@ export const generatePgSchema = (options: GeneratorOptions) => {
 	const tables: string[] = [];
 	const rqb: string[] = [];
 
+	const prismaSchemaAstBuilder = createPrismaSchemaBuilder(options.datamodel);
+
 	for (const schemaTable of modelsWithImplicit) {
+		const modelAst = prismaSchemaAstBuilder.findByType('model', { name: schemaTable.name });
+
+		if (!modelAst) {
+			throw new Error(`Model ${schemaTable.name} not found in schema`);
+		}
+
 		const tableDbName = s(schemaTable.dbName ?? schemaTable.name);
 
 		const columnFields = Object.fromEntries(
 			schemaTable.fields
-				.map((e) => [e.name, prismaToDrizzleColumn(e)])
-				.filter((e) => e[1] !== undefined),
+				.map((field) => {
+					const fieldAst = prismaSchemaAstBuilder.findByType('field', {
+						name: field.name,
+						within: modelAst.properties
+					});
+
+					if (!fieldAst) {
+						throw new Error(`Model ${modelAst.name} not found in schema`);
+					}
+
+					const dbAttribute = fieldAst.attributes?.find(attr => attr.group === 'db');
+
+					return [field.name, prismaToDrizzleColumn(field, dbAttribute?.name.toLowerCase())];
+				})
+				.filter((field) => field.at(1) !== undefined),
 		);
 
 		const indexes: string[] = [];

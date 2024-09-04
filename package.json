@@ -50,6 +50,7 @@
 	},
 	"homepage": "https://github.com/drizzle-team/drizzle-prisma-generator",
 	"dependencies": {
+		"@mrleebo/prisma-ast": "^0.12.0",
 		"@prisma/generator-helper": "^5.14.0"
 	}
 }
