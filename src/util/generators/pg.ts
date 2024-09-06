@@ -1,8 +1,8 @@
 import { s } from '@/util/escape';
 import { extractManyToManyModels } from '@/util/extract-many-to-many-models';
 import { UnReadonlyDeep } from '@/util/un-readonly-deep';
+import { createPrismaSchemaBuilder } from '@mrleebo/prisma-ast';
 import { type DMMF, GeneratorError, type GeneratorOptions } from '@prisma/generator-helper';
-import { createPrismaSchemaBuilder } from "@mrleebo/prisma-ast";
 
 const pgImports = new Set<string>();
 const drizzleImports = new Set<string>();
@@ -22,7 +22,6 @@ const prismaToDrizzleType = (type: string, colDbName: string, defVal?: string, n
 		case 'datetime':
 			if (nativeType === 'time') {
 				pgImports.add('time');
-
 				return `time('${colDbName}', { precision: 3 })`;
 			}
 
@@ -107,8 +106,8 @@ const addColumnModifiers = (field: DMMF.Field, column: string) => {
 					value.args.length
 						? '(' + value.args.map((e) => String(e)).join(', ') + ')'
 						: value.name.endsWith(')')
-							? ''
-							: '()'
+						? ''
+						: '()'
 				}`;
 				const sequel = `sql\`${s(stringified, '`')}\``;
 
@@ -188,14 +187,14 @@ export const generatePgSchema = (options: GeneratorOptions) => {
 				.map((field) => {
 					const fieldAst = prismaSchemaAstBuilder.findByType('field', {
 						name: field.name,
-						within: modelAst.properties
+						within: modelAst.properties,
 					});
 
 					if (!fieldAst) {
 						throw new Error(`Model ${modelAst.name} not found in schema`);
 					}
 
-					const dbAttribute = fieldAst.attributes?.find(attr => attr.group === 'db');
+					const dbAttribute = fieldAst.attributes?.find((attr) => attr.group === 'db');
 
 					return [field.name, prismaToDrizzleColumn(field, dbAttribute?.name.toLowerCase())];
 				})
