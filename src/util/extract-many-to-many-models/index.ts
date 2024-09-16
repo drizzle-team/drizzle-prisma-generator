@@ -35,7 +35,7 @@ const generateModels = (
 
 	manyToManyTables.push({
 		dbName: `_${manyFirst.relationName}`,
-		name: manyFirst.relationName || '',
+		name: `${manySecond.type}To${manyFirst.type}`,
 		primaryKey: null,
 		uniqueFields: [],
 		uniqueIndexes: [],
