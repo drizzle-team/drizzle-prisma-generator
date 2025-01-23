@@ -82,8 +82,13 @@ const addColumnModifiers = (field: DMMF.Field, column: string) => {
 				}
 
 				if (value.name === 'dbgenerated') {
-					column = column + `.default(sql\`${s(value.args[0], '`')}\`)`;
-
+					if (value.args.length) {
+						column = column + `.default(sql\`${s(value.args[0], '`')}\`)`;	
+					} else {
+						// dbgenerated may be empty, to allow for GENERATED columns
+					        // See https://github.com/prisma/prisma/discussions/20077#discussioncomment-7649016
+						column = column + ".generatedAlwaysAs(sql`__dbgenerated_was_empty__`)";	
+					}
 					drizzleImports.add('sql');
 					break;
 				}
