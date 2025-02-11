@@ -6,7 +6,13 @@ import { type DMMF, GeneratorError, type GeneratorOptions } from '@prisma/genera
 const mySqlImports = new Set<string>(['mysqlTable']);
 const drizzleImports = new Set<string>([]);
 
-const prismaToDrizzleType = (type: string, colDbName: string, prismaEnum?: UnReadonlyDeep<DMMF.DatamodelEnum>) => {
+const prismaToDrizzleType = (
+	type: string,
+	colDbName: string,
+	prismaEnum?: UnReadonlyDeep<DMMF.DatamodelEnum>,
+	nativeType?: MySQLNativeTypeMappings,
+	nativeTypeAttributes?: readonly string[],
+) => {
 	if (prismaEnum) {
 		mySqlImports.add('mysqlEnum');
 		return `mysqlEnum('${colDbName}', [${prismaEnum.values.map((val) => `'${val.dbName ?? val.name}'`).join(', ')}])`;
@@ -23,6 +29,13 @@ const prismaToDrizzleType = (type: string, colDbName: string, prismaEnum?: UnRea
 			// Drizzle doesn't support it yet...
 			throw new GeneratorError("Drizzle ORM doesn't support binary data type for MySQL");
 		case 'datetime':
+			if (nativeType === 'Time') {
+				mySqlImports.add('time');
+				const precision = nativeTypeAttributes?.at(0) ?? '3';
+
+				return `time('${colDbName}', { precision: ${precision} })`;
+			}
+
 			mySqlImports.add('datetime');
 			return `datetime('${colDbName}', { fsp: 3 })`;
 		case 'decimal':
@@ -88,7 +101,7 @@ const addColumnModifiers = (field: DMMF.Field, column: string) => {
 					break;
 				}
 
-				if (/^uuid\([0-9]*\)$/.test(value.name)) {
+				if (/^uuid\([0-9]*\)$/.test(value.name) || value.name === "uuid") {
 					column = column + `.default(sql\`uuid()\`)`;
 
 					drizzleImports.add('sql');
@@ -116,6 +129,8 @@ const addColumnModifiers = (field: DMMF.Field, column: string) => {
 const prismaToDrizzleColumn = (
 	field: DMMF.Field,
 	enums: UnReadonlyDeep<DMMF.DatamodelEnum[]>,
+	nativeType?: MySQLNativeTypeMappings,
+	nativeTypeAttributes?: readonly string[],
 ): string | undefined => {
 	const colDbName = s(field.dbName ?? field.name);
 	let column = `\t${field.name}: `;
@@ -124,6 +139,8 @@ const prismaToDrizzleColumn = (
 		field.type,
 		colDbName,
 		field.kind === 'enum' ? enums.find((e) => e.name === field.type)! : undefined,
+		nativeType,
+		nativeTypeAttributes,
 	);
 	if (!drizzleType) return undefined;
 
@@ -150,8 +167,20 @@ export const generateMySqlSchema = (options: GeneratorOptions) => {
 
 		const columnFields = Object.fromEntries(
 			schemaTable.fields
-				.map((e) => [e.name, prismaToDrizzleColumn(e, enums as UnReadonlyDeep<typeof enums>)])
-				.filter((e) => e[1] !== undefined),
+				.map((field) => {
+					const [nativeType, nativeTypeAttributes = []] = field.nativeType ?? [];
+
+					return [
+						field.name,
+						prismaToDrizzleColumn(
+							field,
+							enums as UnReadonlyDeep<typeof enums>,
+							nativeType as MySQLNativeTypeMappings | undefined,
+							nativeTypeAttributes,
+						),
+					];
+				})
+				.filter((field) => field.at(1) !== undefined),
 		);
 
 		const indexes: string[] = [];
@@ -265,7 +294,5 @@ export const generateMySqlSchema = (options: GeneratorOptions) => {
 	let importsStr: string | undefined = [drizzleImportsStr, mySqlImportsStr].filter((e) => e !== undefined).join('\n');
 	if (!importsStr.length) importsStr = undefined;
 
-	const output = [importsStr, ...tables, ...rqb].filter((e) => e !== undefined).join('\n\n');
-
-	return output;
+	return [importsStr, ...tables, ...rqb].filter((e) => e !== undefined).join('\n\n');
 };

@@ -1,7 +1,7 @@
-import { s } from '@/util/escape';
-import { extractManyToManyModels } from '@/util/extract-many-to-many-models';
-import { UnReadonlyDeep } from '@/util/un-readonly-deep';
-import { type DMMF, GeneratorError, type GeneratorOptions } from '@prisma/generator-helper';
+import {s} from '@/util/escape';
+import {extractManyToManyModels} from '@/util/extract-many-to-many-models';
+import {UnReadonlyDeep} from '@/util/un-readonly-deep';
+import {type DMMF, GeneratorError, type GeneratorOptions} from '@prisma/generator-helper';
 
 const sqliteImports = new Set<string>(['sqliteTable']);
 const drizzleImports = new Set<string>([]);
@@ -82,7 +82,7 @@ const addColumnModifiers = (field: DMMF.Field, column: string) => {
 					break;
 				}
 
-				if (/^uuid\([0-9]*\)$/.test(value.name)) {
+				if (/^uuid\([0-9]*\)$/.test(value.name) || value.name === 'uuid') {
 					column = column + `.default(sql\`uuid()\`)`;
 
 					drizzleImports.add('sql');
@@ -255,7 +255,5 @@ export const generateSQLiteSchema = (options: GeneratorOptions) => {
 	let importsStr: string | undefined = [drizzleImportsStr, sqliteImportsStr].filter((e) => e !== undefined).join('\n');
 	if (!importsStr.length) importsStr = undefined;
 
-	const output = [importsStr, ...tables, ...rqb].filter((e) => e !== undefined).join('\n\n');
-
-	return output;
+	return [importsStr, ...tables, ...rqb].filter((e) => e !== undefined).join('\n\n');
 };

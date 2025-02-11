@@ -17,11 +17,11 @@
 		"@arethetypeswrong/cli": "^0.15.3",
 		"@types/node": "^20.12.7",
 		"dprint": "^0.45.1",
-		"prisma": "^5.12.1",
-		"tsup": "^8.0.2",
-		"tsx": "^4.7.2",
-		"typescript": "^5.4.5",
-		"zx": "^8.0.2"
+		"prisma": "^6.0.0",
+		"tsup": "^8.3.5",
+		"tsx": "^4.19.2",
+		"typescript": "^5.7.2",
+		"zx": "^8.2.3"
 	},
 	"keywords": [
 		"drizzle",
@@ -50,6 +50,6 @@
 	},
 	"homepage": "https://github.com/drizzle-team/drizzle-prisma-generator",
 	"dependencies": {
-		"@prisma/generator-helper": "^5.14.0"
+		"@prisma/generator-helper": "^6.0.0"
 	}
 }

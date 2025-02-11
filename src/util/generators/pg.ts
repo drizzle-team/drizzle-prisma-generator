@@ -7,7 +7,13 @@ const pgImports = new Set<string>();
 const drizzleImports = new Set<string>();
 pgImports.add('pgTable');
 
-const prismaToDrizzleType = (type: string, colDbName: string, defVal?: string) => {
+const prismaToDrizzleType = (
+	type: string,
+	colDbName: string,
+	defVal?: string,
+	nativeType?: PostgresNativeTypeMappings,
+	nativeTypeAttributes?: readonly string[],
+) => {
 	switch (type.toLowerCase()) {
 		case 'bigint':
 			pgImports.add('bigint');
@@ -19,15 +25,50 @@ const prismaToDrizzleType = (type: string, colDbName: string, defVal?: string) =
 			// Drizzle doesn't support it yet...
 			throw new GeneratorError("Drizzle ORM doesn't support binary data type for PostgreSQL");
 		case 'datetime':
+			if (nativeType === 'Date') {
+				pgImports.add('date');
+				return `date('${colDbName}')`;
+			}
+			if (nativeType === 'Time') {
+				pgImports.add('time');
+				const precision = nativeTypeAttributes?.[0] ?? '3';
+				return `time('${colDbName}', { precision: ${precision} })`;
+			}
+			if (nativeType === 'Timetz') {
+				const precision = nativeTypeAttributes?.[0] ?? '3';
+				return `time('${colDbName}', { precision: ${precision}, withTimezone: true })`;
+			}
+			if (nativeType === 'Timestamp') {
+				pgImports.add('timestamp');
+				const precision = nativeTypeAttributes?.[0] ?? '3';
+				return `timestamp('${colDbName}', { precision: ${precision} })`;
+			}
+			if (nativeType === 'Timestamptz') {
+				pgImports.add('timestamp');
+				const precision = nativeTypeAttributes?.[0] ?? '3';
+				return `timestamp('${colDbName}', { precision: ${precision}, withTimezone: true })`;
+			}
+			// Default to timestamp without time zone if no native type is specified
 			pgImports.add('timestamp');
 			return `timestamp('${colDbName}', { precision: 3 })`;
 		case 'decimal':
 			pgImports.add('decimal');
-			return `decimal('${colDbName}', { precision: 65, scale: 30 })`;
+			const precision = nativeTypeAttributes?.[0] ?? '65';
+			const scale = nativeTypeAttributes?.[1] ?? '30';
+			return `decimal('${colDbName}', { precision: ${precision}, scale: ${scale} })`;
 		case 'float':
 			pgImports.add('doublePrecision');
 			return `doublePrecision('${colDbName}')`;
 		case 'json':
+			if (nativeType === 'Json') {
+				pgImports.add('json');
+				return `json('${colDbName}')`;
+			}
+			if (nativeType === 'JsonB') {
+				pgImports.add('jsonb');
+				return `jsonb('${colDbName}')`;
+			}
+			// Default to jsonb if no native type is specified
 			pgImports.add('jsonb');
 			return `jsonb('${colDbName}')`;
 		case 'int':
@@ -39,6 +80,11 @@ const prismaToDrizzleType = (type: string, colDbName: string, defVal?: string) =
 			pgImports.add('integer');
 			return `integer('${colDbName}')`;
 		case 'string':
+			if (nativeType === 'Uuid') {
+				pgImports.add('uuid');
+				return `uuid('${colDbName}')`;
+			}
+
 			pgImports.add('text');
 			return `text('${colDbName}')`;
 		default:
@@ -89,7 +135,7 @@ const addColumnModifiers = (field: DMMF.Field, column: string) => {
 					break;
 				}
 
-				if (/^uuid\([0-9]*\)$/.test(value.name)) {
+				if (/^uuid\([0-9]*\)$/.test(value.name) || value.name === "uuid") {
 					column = column + `.default(sql\`uuid()\`)`;
 
 					drizzleImports.add('sql');
@@ -116,6 +162,8 @@ const addColumnModifiers = (field: DMMF.Field, column: string) => {
 
 const prismaToDrizzleColumn = (
 	field: DMMF.Field,
+	nativeType?: PostgresNativeTypeMappings,
+	nativeTypeAttributes?: readonly string[],
 ): string | undefined => {
 	const colDbName = s(field.dbName ?? field.name);
 	let column = `\t${field.name}: `;
@@ -127,7 +175,13 @@ const prismaToDrizzleColumn = (
 			? (field.default as { name: string }).name
 			: undefined;
 
-		const drizzleType = prismaToDrizzleType(field.type, colDbName, defVal);
+		const drizzleType = prismaToDrizzleType(
+			field.type,
+			colDbName,
+			defVal,
+			nativeType,
+			nativeTypeAttributes,
+		);
 		if (!drizzleType) return undefined;
 
 		column = column + drizzleType;
@@ -169,8 +223,19 @@ export const generatePgSchema = (options: GeneratorOptions) => {
 
 		const columnFields = Object.fromEntries(
 			schemaTable.fields
-				.map((e) => [e.name, prismaToDrizzleColumn(e)])
-				.filter((e) => e[1] !== undefined),
+				.map((field) => {
+					const [nativeType, nativeTypeAttributes = []] = field.nativeType ?? [];
+
+					return [
+						field.name,
+						prismaToDrizzleColumn(
+							field,
+							nativeType as PostgresNativeTypeMappings | undefined,
+							nativeTypeAttributes,
+						),
+					];
+				})
+				.filter((field) => field.at(1) !== undefined),
 		);
 
 		const indexes: string[] = [];
@@ -285,7 +350,5 @@ export const generatePgSchema = (options: GeneratorOptions) => {
 	let importsStr: string | undefined = [drizzleImportsStr, pgImportsStr].filter((e) => e !== undefined).join('\n');
 	if (!importsStr.length) importsStr = undefined;
 
-	const output = [importsStr, ...pgEnums, ...tables, ...rqb].filter((e) => e !== undefined).join('\n\n');
-
-	return output;
+	return [importsStr, ...pgEnums, ...tables, ...rqb].filter((e) => e !== undefined).join('\n\n');
 };
