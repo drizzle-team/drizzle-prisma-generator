@@ -46,6 +46,21 @@ const prismaToDrizzleType = (type: string, colDbName: string, defVal?: string) =
 	}
 };
 
+const createSerialColumn = (column: string) => {
+	const matchesBigInt = column.match(/bigint\('(.*)'/);
+	const matchesInt = column.match(/integer\('(.*)'/);
+	switch (true) {
+	  case !!matchesBigInt:
+		pgImports.add('bigserial');
+		return column.replace('bigint', 'bigserial');
+	  case !!matchesInt:
+		pgImports.add('serial');
+		return column.replace('integer', 'serial');
+	  default:
+		return column;
+	}
+  };
+
 const addColumnModifiers = (field: DMMF.Field, column: string) => {
 	if (field.isList) column = column + `.array()`;
 	if (field.isRequired) column = column + `.notNull()`;
@@ -79,6 +94,8 @@ const addColumnModifiers = (field: DMMF.Field, column: string) => {
 				}
 
 				if (value.name === 'autoincrement') {
+					column = createSerialColumn(column);
+
 					break;
 				}
 
