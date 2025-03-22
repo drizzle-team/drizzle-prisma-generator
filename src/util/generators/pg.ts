@@ -18,6 +18,10 @@ const prismaToDrizzleType = (type: string, colDbName: string, defVal?: string) =
 		case 'bytes':
 			// Drizzle doesn't support it yet...
 			throw new GeneratorError("Drizzle ORM doesn't support binary data type for PostgreSQL");
+		 case "date":
+			pgImports.add("date");
+			return `date('${colDbName}', { mode: 'date' })`;
+		case 'timestamptz':
 		case 'datetime':
 			pgImports.add('timestamp');
 			return `timestamp('${colDbName}', { precision: 3 })`;
@@ -127,7 +131,8 @@ const prismaToDrizzleColumn = (
 			? (field.default as { name: string }).name
 			: undefined;
 
-		const drizzleType = prismaToDrizzleType(field.type, colDbName, defVal);
+		const fieldType = field.nativeType?.[0] || field.type;
+		const drizzleType = prismaToDrizzleType(fieldType, colDbName, defVal);
 		if (!drizzleType) return undefined;
 
 		column = column + drizzleType;
