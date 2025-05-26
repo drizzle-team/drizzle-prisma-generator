@@ -174,7 +174,7 @@ export const generateSQLiteSchema = (options: GeneratorOptions) => {
 
 			sqliteImports.add('foreignKey');
 
-			return `\t'${fkeyName}': foreignKey({\n\t\tname: '${fkeyName}',\n\t\tcolumns: [${
+			return `\tforeignKey({\n\t\tname: '${fkeyName}',\n\t\tcolumns: [${
 				field.relationFromFields.map((rel) => `${schemaTable.name}.${rel}`).join(', ')
 			}],\n\t\tforeignColumns: [${field.relationToFields!.map((rel) => `${field.type}.${rel}`).join(', ')}]\n\t})${
 				deleteAction && deleteAction !== 'no action' ? `\n\t\t.onDelete('${deleteAction}')` : ''
@@ -190,9 +190,7 @@ export const generateSQLiteSchema = (options: GeneratorOptions) => {
 				const idxName = s(idx.name ?? `${schemaTable.name}_${idx.fields.join('_')}_key`);
 				// _key comes from Prisma, if their AI is to be trusted
 
-				return `\t'${
-					idx.name ? idxName : `${idxName.slice(0, idxName.length - 4)}_unique_idx`
-				}': uniqueIndex('${idxName}')\n\t\t.on(${idx.fields.map((f) => `${schemaTable.name}.${f}`).join(', ')})`;
+				return `\tuniqueIndex('${idxName}')\n\t\t.on(${idx.fields.map((f) => `${schemaTable.name}.${f}`).join(', ')})`;
 			});
 
 			indexes.push(...uniques);
@@ -204,7 +202,7 @@ export const generateSQLiteSchema = (options: GeneratorOptions) => {
 			const pk = schemaTable.primaryKey!;
 			const pkName = s(pk.name ?? `${schemaTable.name}_cpk`);
 
-			const pkField = `\t'${pkName}': primaryKey({\n\t\tname: '${pkName}',\n\t\tcolumns: [${
+			const pkField = `\tprimaryKey({\n\t\tname: '${pkName}',\n\t\tcolumns: [${
 				pk.fields.map((f) => `${schemaTable.name}.${f}`).join(', ')
 			}]\n\t})`;
 
@@ -213,7 +211,7 @@ export const generateSQLiteSchema = (options: GeneratorOptions) => {
 
 		const table = `export const ${schemaTable.name} = sqliteTable('${tableDbName}', {\n${
 			Object.values(columnFields).join(',\n')
-		}\n}${indexes.length ? `, (${schemaTable.name}) => ({\n${indexes.join(',\n')}\n})` : ''});`;
+		}\n}${indexes.length ? `, (${schemaTable.name}) => [\n${indexes.join(',\n')}\n]` : ''});`;
 
 		tables.push(table);
 
