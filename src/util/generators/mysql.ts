@@ -2,6 +2,7 @@ import { s } from '@/util/escape';
 import { extractManyToManyModels } from '@/util/extract-many-to-many-models';
 import { UnReadonlyDeep } from '@/util/un-readonly-deep';
 import { type DMMF, GeneratorError, type GeneratorOptions } from '@prisma/generator-helper';
+import path from 'path';
 
 const mySqlImports = new Set<string>(['mysqlTable']);
 const drizzleImports = new Set<string>([]);
@@ -144,6 +145,7 @@ export const generateMySqlSchema = (options: GeneratorOptions) => {
 
 	const tables: string[] = [];
 	const rqb: string[] = [];
+	const rqbv2: string[] = [];
 
 	for (const schemaTable of modelsWithImplicit) {
 		const tableDbName = s(schemaTable.dbName ?? schemaTable.name);
@@ -228,7 +230,7 @@ export const generateMySqlSchema = (options: GeneratorOptions) => {
 		tables.push(table);
 
 		if (!relFields.length) continue;
-		drizzleImports.add('relations');
+		if (options.generator.config['relationsVersion'] === 'v1') drizzleImports.add('relations');
 
 		const relationArgs = new Set<string>();
 		const rqbFields = relFields.map((field) => {
@@ -249,6 +251,19 @@ export const generateMySqlSchema = (options: GeneratorOptions) => {
 		const rqbRelation =
 			`export const ${schemaTable.name}Relations = relations(${schemaTable.name}, ({ ${argString} }) => ({\n${rqbFields}\n}));`;
 
+		const rqbv2Fields = relFields.map(field => {
+			const relName = s(field.relationName ?? '');
+			return `\t\t${field.name}: ${
+				field.relationFromFields?.length
+				? `r.one.${field.type}({\n\t\t\tfrom: r.${schemaTable.name}.${field.relationFromFields.at(0)},\n\t\t\tto: r.${field.type}.${
+				field.relationToFields?.at(0)},\n\t\t\talias: '${relName}'\n\t\t})`
+				: `r.many.${field.type}({\n\t\t\talias: '${relName}'\n\t\t})`
+			}`
+		}).join(',\n');
+
+		const rqbv2Relation = `\t${schemaTable.name}: {\n${ rqbv2Fields }\n\t}`
+		
+		rqbv2.push(rqbv2Relation);
 		rqb.push(rqbRelation);
 	}
 
@@ -265,7 +280,18 @@ export const generateMySqlSchema = (options: GeneratorOptions) => {
 	let importsStr: string | undefined = [drizzleImportsStr, mySqlImportsStr].filter((e) => e !== undefined).join('\n');
 	if (!importsStr.length) importsStr = undefined;
 
-	const output = [importsStr, ...tables, ...rqb].filter((e) => e !== undefined).join('\n\n');
+	const schemaFileName = options.schemaPath ? path.basename(options.schemaPath, path.extname(options.schemaPath)) : 'schema'
 
-	return output;
+	let rqbv2Imports = [
+		`import { defineRelations } from "drizzle-orm";`,
+		`import * as schema from "./${schemaFileName}";`
+	];
+
+	const rqbv2Relations = `\nexport const relations = defineRelations(schema, (r) => ({\n${rqbv2.join(',\n')}\n}));` 
+
+	const relations = [...rqbv2Imports, rqbv2Relations].join('\n')
+
+	const schema = [importsStr, ...tables, ...(options.generator.config['relationsVersion'] === 'v1' ? rqb : [])].filter((e) => e !== undefined).join('\n\n');
+
+	return [schema, relations] as [string, string];
 };
