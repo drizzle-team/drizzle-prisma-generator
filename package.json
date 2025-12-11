@@ -10,17 +10,21 @@
 		"pack": "(cd dist && npm pack --pack-destination ..) && rm -f package.tgz && mv *.tgz package.tgz",
 		"publish": "npm publish package.tgz",
 		"test": "vitest run",
+		"test:watch": "vitest",
+		"test:ui": "vitest --ui",
 		"lint": "dprint check --list-different"
 	},
 	"license": "Apache-2.0",
 	"devDependencies": {
 		"@arethetypeswrong/cli": "^0.15.3",
 		"@types/node": "^20.12.7",
+		"@vitest/ui": "^4.0.15",
 		"dprint": "^0.45.1",
 		"prisma": "^5.12.1",
 		"tsup": "^8.0.2",
 		"tsx": "^4.7.2",
 		"typescript": "^5.4.5",
+		"vitest": "^4.0.15",
 		"zx": "^8.0.2"
 	},
 	"keywords": [

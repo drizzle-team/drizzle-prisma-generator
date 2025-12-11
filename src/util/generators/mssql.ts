@@ -1,51 +1,41 @@
-import { s } from '@/util/escape';
-import { extractManyToManyModels } from '@/util/extract-many-to-many-models';
-import { UnReadonlyDeep } from '@/util/un-readonly-deep';
-import { type DMMF, GeneratorError, type GeneratorOptions } from '@prisma/generator-helper';
+import { DMMF, GeneratorError, type GeneratorOptions } from '@prisma/generator-helper';
+import { s } from '../escape';
+import { extractManyToManyModels } from '../extract-many-to-many-models';
+import { UnReadonlyDeep } from '../un-readonly-deep';
 
-const mySqlImports = new Set<string>(['mysqlTable']);
+const mssqlImports = new Set<string>();
 const drizzleImports = new Set<string>([]);
 
-const prismaToDrizzleType = (
-  type: string,
-  colDbName: string,
-  prismaEnum?: UnReadonlyDeep<DMMF.DatamodelEnum>
-) => {
-  if (prismaEnum) {
-    mySqlImports.add('mysqlEnum');
-    return `mysqlEnum('${colDbName}', [${prismaEnum.values
-      .map((val) => `'${val.dbName ?? val.name}'`)
-      .join(', ')}])`;
-  }
+mssqlImports.add('mssqlTable');
 
+const prismaToDrizzleType = (type: string, columnDbName: string) => {
   switch (type.toLowerCase()) {
     case 'bigint':
-      mySqlImports.add('bigint');
-      return `bigint('${colDbName}', { mode: 'bigint' })`;
+      mssqlImports.add('bigint');
+      return `bigint('${columnDbName}', { mode: 'bigint' })`;
     case 'boolean':
-      mySqlImports.add('boolean');
-      return `boolean('${colDbName}')`;
+      mssqlImports.add('bit');
+      return `bit('${columnDbName}')`;
     case 'bytes':
-      // Drizzle doesn't support it yet...
-      throw new GeneratorError("Drizzle ORM doesn't support binary data type for MySQL");
+      mssqlImports.add('varbinary');
+      return `varbinary('${columnDbName}')`;
     case 'datetime':
-      mySqlImports.add('datetime');
-      return `datetime('${colDbName}', { fsp: 3 })`;
+      mssqlImports.add('datetime');
+      return `datetime('${columnDbName}', { mode: 'date' })`;
     case 'decimal':
-      mySqlImports.add('decimal');
-      return `decimal('${colDbName}', { precision: 65, scale: 30 })`;
+      mssqlImports.add('decimal');
+      return `decimal('${columnDbName}', { precision: 65, scale: 30 })`;
     case 'float':
-      mySqlImports.add('double');
-      return `double('${colDbName}')`;
+      mssqlImports.add('float');
+      return `float('${columnDbName}')`;
     case 'json':
-      mySqlImports.add('json');
-      return `json('${colDbName}')`;
-    case 'int':
-      mySqlImports.add('int');
-      return `int('${colDbName}')`;
+      throw new GeneratorError("Drizzle ORM doesn't support JSON data type for MSSQL");
     case 'string':
-      mySqlImports.add('varchar');
-      return `varchar('${colDbName}', { length: 191 })`;
+      mssqlImports.add('varchar');
+      return `varchar('${columnDbName}')`;
+    case 'int':
+      mssqlImports.add('int');
+      return `int('${columnDbName}')`;
     default:
       return undefined;
   }
@@ -68,34 +58,39 @@ const addColumnModifiers = (field: DMMF.Field, column: string) => {
         break;
       case 'object':
         if (Array.isArray(defVal)) {
-          column = column + `.default([${defVal.map((e) => JSON.stringify(e)).join(', ')}])`;
-          break;
+          throw new GeneratorError("MSSQL doesn't support array defaults");
         }
 
         const value = defVal as {
           name: string;
-          args: any[];
+          args: unknown[];
         };
 
         if (value.name === 'now') {
-          column = column + `.default(sql\`CURRENT_TIMESTAMP\`)`;
+          column = column + `.defaultGetDate()`;
           break;
         }
 
         if (value.name === 'autoincrement') {
-          column = column + `.autoincrement()`;
+          column = column + `.identity({ seed: 1, increment: 1 })`;
           break;
         }
 
         if (value.name === 'dbgenerated') {
-          column = column + `.default(sql\`${s(value.args[0], '`')}\`)`;
+          const dbGeneratedValue = value.args[0];
+
+          if (dbGeneratedValue) {
+            column = column + `.default(sql\`${s(dbGeneratedValue as unknown as string, '`')}\`)`;
+          } else {
+            column = column + `.default(sql\`NEWID()\`)`;
+          }
 
           drizzleImports.add('sql');
           break;
         }
 
         if (/^uuid\([0-9]*\)$/.test(value.name)) {
-          column = column + `.default(sql\`uuid()\`)`;
+          column = column + `.default(sql\`NEWSEQUENTIALID()\`)`;
 
           drizzleImports.add('sql');
           break;
@@ -119,18 +114,11 @@ const addColumnModifiers = (field: DMMF.Field, column: string) => {
   return column;
 };
 
-const prismaToDrizzleColumn = (
-  field: DMMF.Field,
-  enums: UnReadonlyDeep<DMMF.DatamodelEnum[]>
-): string | undefined => {
+const prismaToDrizzleColumn = (field: DMMF.Field): string | undefined => {
   const colDbName = s(field.dbName ?? field.name);
   let column = `\t${field.name}: `;
 
-  const drizzleType = prismaToDrizzleType(
-    field.type,
-    colDbName,
-    field.kind === 'enum' ? enums.find((e) => e.name === field.type)! : undefined
-  );
+  const drizzleType = prismaToDrizzleType(field.type, colDbName);
   if (!drizzleType) return undefined;
 
   column = column + drizzleType;
@@ -140,32 +128,37 @@ const prismaToDrizzleColumn = (
   return column;
 };
 
-export const generateMySqlSchema = (options: GeneratorOptions) => {
-  const { models, enums } = options.dmmf.datamodel;
+export const generateMsSqlSchema = (options: GeneratorOptions): string => {
+  const { models, indexes: allIndexes } = options.dmmf.datamodel;
+
   const clonedModels = JSON.parse(JSON.stringify(models)) as UnReadonlyDeep<DMMF.Model[]>;
 
   const manyToManyModels = extractManyToManyModels(clonedModels);
 
-  const modelsWithImplicit = [...clonedModels, ...manyToManyModels] as DMMF.Model[];
+  const modelsWithImplicit = [...clonedModels, manyToManyModels] as DMMF.Model[];
 
   const tables: string[] = [];
   const rqb: Record<string, string[]> = {};
   const tablesWithRelations = new Set<string>();
 
   for (const schemaTable of modelsWithImplicit) {
+    if (!schemaTable.name || !schemaTable.fields?.length) continue;
+
     const tableDbName = s(schemaTable.dbName ?? schemaTable.name);
 
     const columnFields = Object.fromEntries(
       schemaTable.fields
-        .map((e) => [e.name, prismaToDrizzleColumn(e, enums as UnReadonlyDeep<typeof enums>)])
+        .map((e) => [e.name, prismaToDrizzleColumn(e)])
         .filter((e) => e[1] !== undefined)
     );
 
-    const indexes: string[] = [];
+    const indexesArr: string[] = [];
 
     const relFields = schemaTable.fields.filter(
       (field) => field.relationToFields && field.relationFromFields
     );
+
+    // Foreign Key Indexes
     const relations = relFields
       .map<string | undefined>((field) => {
         if (!field?.relationFromFields?.length) return undefined;
@@ -173,7 +166,9 @@ export const generateMySqlSchema = (options: GeneratorOptions) => {
         const fkeyName = s(
           `${schemaTable.dbName ?? schemaTable.name}_${field.dbName ?? field.name}_fkey`
         );
+
         let deleteAction: string;
+
         switch (field.relationOnDelete) {
           case undefined:
           case 'Cascade':
@@ -197,55 +192,75 @@ export const generateMySqlSchema = (options: GeneratorOptions) => {
             );
         }
 
-        mySqlImports.add('foreignKey');
+        mssqlImports.add('foreignKey');
 
-        return `\t'${fkeyName}': foreignKey({\n\t\tname: '${fkeyName}',\n\t\tcolumns: [${field.relationFromFields
+        return `foreignKey({\n\t\tname: '${fkeyName}',\n\t\tcolumns: [${(
+          field.relationFromFields ?? []
+        )
           .map((rel) => `${schemaTable.name}.${rel}`)
-          .join(', ')}],\n\t\tforeignColumns: [${field
-          .relationToFields!.map((rel) => `${field.type}.${rel}`)
+          .join(', ')}],\n\t\tforeignColumns: [${(field.relationToFields ?? [])
+          .map((rel) => `${field.type}.${rel}`)
           .join(', ')}]\n\t})${
-          deleteAction && deleteAction !== 'no action' ? `\n\t\t.onDelete('${deleteAction}')` : ''
-        }\n\t\t.onUpdate('cascade')`;
+          deleteAction && deleteAction !== 'no action' ? `.onDelete('${deleteAction}')` : ''
+        }.onUpdate('cascade')`;
       })
       .filter((e) => e !== undefined) as string[];
 
-    indexes.push(...relations);
+    indexesArr.push(...relations);
 
+    // Regular Indexes
+    const modelIndexes = allIndexes.filter((idx) => idx.model === schemaTable.name);
+    if (modelIndexes.length) {
+      console.log('Index Structure: ', JSON.stringify(modelIndexes, null, 2));
+      mssqlImports.add('index');
+
+      const regularIndexes = modelIndexes.map((idx) => {
+        // idx.fields is likely an array of objects with a 'name' property
+        const fieldNames = idx.fields.map((f) => (typeof f === 'string' ? f : f.name));
+        const idxName = s(idx.name ?? `${schemaTable.name}_${fieldNames.join('_')}_idx`);
+
+        return `index('${idxName}')\n\t\t.on(${fieldNames
+          .map((f) => `${schemaTable.name}.${f}`)
+          .join(', ')})`;
+      });
+      indexesArr.push(...regularIndexes);
+    }
+
+    // Unique Indexes
     if (schemaTable.uniqueIndexes.length) {
-      mySqlImports.add('uniqueIndex');
+      mssqlImports.add('uniqueIndex');
 
       const uniques = schemaTable.uniqueIndexes.map((idx) => {
         const idxName = s(idx.name ?? `${schemaTable.name}_${idx.fields.join('_')}_key`);
         // _key comes from Prisma, if their AI is to be trusted
 
-        return `\t'${
-          idx.name ? idxName : `${idxName.slice(0, idxName.length - 4)}_unique_idx`
-        }': uniqueIndex('${idxName}')\n\t\t.on(${idx.fields
+        return `uniqueIndex('${idxName}')\n\t\t.on(${idx.fields
           .map((f) => `${schemaTable.name}.${f}`)
           .join(', ')})`;
       });
 
-      indexes.push(...uniques);
+      indexesArr.push(...uniques);
     }
 
+    // Primary Key Index
     if (schemaTable.primaryKey) {
-      mySqlImports.add('primaryKey');
+      mssqlImports.add('primaryKey');
 
       const pk = schemaTable.primaryKey!;
       const pkName = s(pk.name ?? `${schemaTable.name}_cpk`);
 
-      const pkField = `\t'${pkName}': primaryKey({\n\t\tname: '${pkName}',\n\t\tcolumns: [${pk.fields
+      const pkField = `primaryKey({\n\t\tname: '${pkName}',\n\t\tcolumns: [${pk.fields
         .map((f) => `${schemaTable.name}.${f}`)
         .join(', ')}]\n\t})`;
 
-      indexes.push(pkField);
+      indexesArr.push(pkField);
     }
+
     const table = `export const ${
       schemaTable.name
-    } = mysqlTable('${tableDbName}', {\n${Object.values(columnFields).join(',\n')}\n}${
-      indexes.length ? `, (${schemaTable.name}) => ({\n${indexes.join(',\n')}\n})` : ''
+    } = mssqlTable('${tableDbName}', {\n${Object.values(columnFields).join(',\n')}\n}${
+      indexesArr.length ? `, (${schemaTable.name}) => [\n\t${indexesArr.join(',\n\t')}\n]` : ''
     });`;
-
     tables.push(table);
 
     if (!relFields?.length) continue;
@@ -299,18 +314,17 @@ export const generateMySqlSchema = (options: GeneratorOptions) => {
 
     relationsOutput = `export const relations = defineRelations({ ${schemaObjectEntries} }, (r) => ({\n${relationsBody}\n}));`;
   }
-
   const drizzleImportsArr = Array.from(drizzleImports.values()).sort((a, b) => a.localeCompare(b));
   const drizzleImportStr = drizzleImportsArr.length
     ? `import { ${drizzleImportsArr.join(', ')} } from 'drizzle-orm'`
     : undefined;
 
-  const mySqlImportsArr = Array.from(mySqlImports.values()).sort((a, b) => a.localeCompare(b));
-  const mySqlImportStr = mySqlImportsArr.length
-    ? `import { ${mySqlImportsArr.join(', ')} } from 'drizzle-orm/mysql-core'`
+  const mssqlImportsArr = Array.from(mssqlImports.values()).sort((a, b) => a.localeCompare(b));
+  const mssqlImportStr = mssqlImportsArr.length
+    ? `import { ${mssqlImportsArr.join(', ')} } from 'drizzle-orm/mssql-core'`
     : undefined;
 
-  let importsStr: string | undefined = [drizzleImportStr, mySqlImportStr]
+  let importsStr: string | undefined = [drizzleImportStr, mssqlImportStr]
     .filter((e) => e !== undefined)
     .join('\n');
   if (!importsStr?.length) importsStr = undefined;
