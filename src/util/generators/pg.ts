@@ -60,6 +60,10 @@ const addColumnModifiers = (field: DMMF.Field, column: string) => {
 			case 'string':
 			case 'symbol':
 			case 'boolean':
+				if (typeof defVal === 'number' && defVal < 0 ){
+					 column = column + `.default(${JSON.stringify(defVal.toString())})`;
+					 break;
+				}
 				column = column + `.default(${JSON.stringify(defVal)})`;
 				break;
 			case 'object':
