@@ -11,5 +11,9 @@ export default defineConfig({
 		include: ['tests/**/*.test.ts'],
 		snapshotSerializers: ['./tests/helpers/remove-snapshot-quotes.ts'],
 		testTimeout: 30_000,
+		typecheck: {
+			enabled: true,
+			include: ['tests/generators/__snapshots__/*.ts'],
+		},
 	},
 });
