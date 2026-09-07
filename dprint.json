@@ -12,6 +12,7 @@
 	"markdown": {},
 	"includes": ["**/*.{ts,tsx,js,jsx,cjs,mjs,json}"],
 	"excludes": [
+		"**/__snapshots__",
 		"**/node_modules",
 		"dist",
 		"dist-dts",

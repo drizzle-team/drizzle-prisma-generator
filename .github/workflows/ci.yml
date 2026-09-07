@@ -1,23 +1,20 @@
-name: Release
+name: CI
 
-on: workflow_dispatch
+on:
+    pull_request:
+    push:
+        branches:
+            - main
 
 jobs:
-    release:
-        permissions: write-all
-        strategy:
-            fail-fast: false
-            matrix:
-                package:
-                    - drizzle-prisma-generator
-        runs-on: ubuntu-20.04
+    test:
+        runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v4
 
             - uses: actions/setup-node@v4
               with:
                   node-version: 18
-                  registry-url: 'https://registry.npmjs.org'
 
             - uses: pnpm/action-setup@v3
               name: Install pnpm
@@ -46,32 +43,11 @@ jobs:
             - name: Lint
               run: pnpm lint
 
+            - name: Typecheck
+              run: pnpm typecheck
+
             - name: Test
               run: pnpm test
 
             - name: Build
-              run: |
-                  pnpm build
-
-            - name: Pack
-              shell: bash
-              env:
-                  NODE_AUTH_TOKEN: ${{ secrets.NPM_ACCESS_TOKEN }}
-              run: |
-                  npm run pack
-
-            - name: Run @arethetypeswrong/cli
-              run: |
-                  pnpm attw package.tgz
-
-            - name: Publish
-              shell: bash
-              env:
-                  NODE_AUTH_TOKEN: ${{ secrets.NPM_ACCESS_TOKEN }}
-              run: |
-                  version="$(jq -r .version package.json)"
-
-                  echo "Publishing ${{ matrix.package }}@$version"
-                  npm run publish --access public
-
-                  echo "npm: \`+ ${{ matrix.package }}@$version\`" >> $GITHUB_STEP_SUMMARY
+              run: pnpm build
