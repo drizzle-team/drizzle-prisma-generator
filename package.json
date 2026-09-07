@@ -10,17 +10,21 @@
 		"pack": "(cd dist && npm pack --pack-destination ..) && rm -f package.tgz && mv *.tgz package.tgz",
 		"publish": "npm publish package.tgz",
 		"test": "vitest run",
+		"typecheck": "tsc -p tsconfig.json",
 		"lint": "dprint check --list-different"
 	},
 	"license": "Apache-2.0",
 	"devDependencies": {
 		"@arethetypeswrong/cli": "^0.15.3",
+		"@prisma/internals": "5.14.0",
 		"@types/node": "^20.12.7",
 		"dprint": "^0.45.1",
+		"drizzle-orm": "^0.45.2",
 		"prisma": "^5.12.1",
 		"tsup": "^8.0.2",
 		"tsx": "^4.7.2",
 		"typescript": "^5.4.5",
+		"vitest": "^3",
 		"zx": "^8.0.2"
 	},
 	"keywords": [

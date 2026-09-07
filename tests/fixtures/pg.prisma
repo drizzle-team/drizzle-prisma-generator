@@ -1,0 +1,83 @@
+datasource db {
+	provider = "postgresql"
+	url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
+}
+
+enum Role {
+	USER
+	ADMIN @map("administrator")
+}
+
+model User {
+	id        Int      @id @default(autoincrement())
+	email     String   @unique
+	name      String?  @map("full_name")
+	age       Int      @default(18)
+	balance   Float    @default(0.5)
+	isActive  Boolean  @default(true)
+	bigCount  BigInt
+	price     Decimal
+	meta      Json?
+	createdAt DateTime @default(now())
+	uuid      String   @default(uuid())
+	cuid      String   @default(cuid())
+	generated String   @default(dbgenerated("gen_random_uuid()"))
+	labels    String[] @default(["a", "b"])
+	geo       Unsupported("geometry")?
+	role      Role     @default(USER)
+	posts     Post[]
+	likes     Like[]
+	notes     Note[]
+	profile   Profile?
+	tags      Tag[]
+
+	@@map("users")
+}
+model Profile {
+	id     Int  @id
+	userId Int  @unique
+	user   User @relation(fields: [userId], references: [id])
+}
+
+model Post {
+	id       Int    @id
+	title    String @map("post_title")
+	authorId Int?
+	author   User?  @relation(fields: [authorId], references: [id], onDelete: SetNull)
+	tags     Tag[]
+
+	@@map("posts")
+}
+
+model Like {
+	id     Int  @id
+	userId Int
+	user   User @relation(fields: [userId], references: [id], onDelete: Restrict)
+}
+
+model Note {
+	id     Int  @id
+	userId Int
+	user   User @relation(fields: [userId], references: [id], onDelete: NoAction)
+}
+
+model Tag {
+	id    Int    @id
+	users User[]
+	posts Post[]
+}
+
+model Membership {
+	userId  Int
+	groupId Int
+	role    String
+
+	@@id([userId, groupId])
+	@@unique([userId, role])
+	@@unique([groupId, role], name: "group_role")
+}
